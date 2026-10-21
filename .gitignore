@@ -1,0 +1,52 @@
+# Built application binaries
+*.apk
+*.aab
+*.ane
+*.so
+*.dll
+*.dylib
+
+# Gradle build files
+.gradle/
+build/
+*/build/
+
+# Local configuration file
+local.properties
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
+
+# Keystore / signing (never commit secrets)
+*.keystore
+*.jks
+*.key
+*.p12
+*.pfx
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# macOS / Linux hidden files
+.DS_Store
+Thumbs.db
+
+# Editor swap / backup
+*.swp
+*.swo
+*~
+
+# Test / coverage reports
+coverage/
+*.exec
+*.ec
+
+# Wasm export artifacts (optionally ignored)
+metadata-cleaner-wasm.html

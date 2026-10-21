@@ -20,10 +20,15 @@ android {
 
     signingConfigs {
         getByName("debug") {
-            storeFile = file("${rootDir}/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            // Debug builds use the Android SDK debug keystore when present.
+            // A local debug.keystore is NOT committed to this repository.
+            val debugKeystore = file("${rootDir}/debug.keystore")
+            if (debugKeystore.exists()) {
+                storeFile = debugKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
         }
     }
 
@@ -33,7 +38,26 @@ android {
         }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            // Release signing is configured separately via keystore properties or CI.
+            // Do not rely on a committed debug.keystore for release builds.
+            val releaseKeystore = project.findProperty("releaseKeystoreFile") as? String
+            if (releaseKeystore != null) {
+                signingConfig = signingConfigs.create("release") {
+                    storeFile = file(releaseKeystore)
+                    storePassword = project.findProperty("releaseStorePassword") as? String ?: ""
+                    keyAlias = project.findProperty("releaseKeyAlias") as? String ?: ""
+                    keyPassword = project.findProperty("releaseKeyPassword") as? String ?: ""
+                }
+            } else {
+                // Without a configured release keystore, release APKs cannot be signed.
+                // Set the releaseKeystoreFile family of properties (or supply a keystore)
+                // before running:  gradle :app:assembleRelease
+                throw GradleException(
+                    "Release signing is not configured. " +
+                    "Provide releaseKeystoreFile / releaseStorePassword / releaseKeyAlias / releaseKeyPassword " +
+                    "project properties, or supply a signing config, then retry assembleRelease."
+                )
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

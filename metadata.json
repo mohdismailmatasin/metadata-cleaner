@@ -2,7 +2,7 @@
   "name": "Metadata Cleaner",
   "description": "Clean, inspect, and remove sensitive EXIF and AI generation metadata from images.",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": []
+  // NOTE: only declare capabilities the shipped codebase actually implements.
+  // The app is fully on-device; no server-side Gemini API is used.
 }

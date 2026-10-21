@@ -125,7 +125,8 @@ Unlike conventional metadata strippers that silently overwrite files or make unv
 | :--- | :--- | :--- | :--- |
 | **Images** | `JPG`, `JPEG`, `PNG`, `WebP`, `HEIC`, `AVIF`, `TIFF` | **Supported** | Full scan, pixel reconstruction, metadata purge & secondary verification |
 | **Video** | `MP4`, `MOV` | **Supported** | Native lossless container remuxing, GPS geotag (@xyz) & UDTA metadata purge |
-| **RAW** | `CR3`, `ARW`, `NEF`, `CR2`, `DNG` | **Supported** | Deep profile sanitization: purges camera/lens serials in MakerNotes, GPS & XMP |
+| **RAW** | `CR3`, `ARW`, `NEF`, `DNG` | **Supported** | Deep profile sanitization: purges camera/lens serials in MakerNotes, GPS & XMP |
+| **RAW** | `CR2` | **Scan Only** | Format detected; MakerNote purge not yet covered by a dedicated verification test |
 | **Other Video** | `M4V`, `MKV`, `WebM` | **Scan Only** | Container metadata, GPS track & codec profile extraction |
 | **Documents** | `PDF`, `DOCX`, `XLSX`, `PPTX` | **Scan Only** | Creator, author, revision count, and modification dates |
 | **Audio** | `MP3`, `M4A`, `WAV` | **Scan Only** | ID3 tags, artist, album, and encoder software |
@@ -146,9 +147,9 @@ Unlike conventional metadata strippers that silently overwrite files or make unv
 
 ---
 
-## 💻 CLI (aimc)
+## 💻 CLI (aimc) — planned
 
-The headless CLI engine allows command-line scanning, cleaning, and verification:
+A standalone `aimc` CLI is **planned but not yet shipped**. When implemented it will expose:
 
 ```bash
 # Scan a photo for hidden metadata and AI parameters
@@ -164,7 +165,7 @@ aimc verify ./sanitized/clean_photo.jpg
 aimc clean ./photos --output ./clean-photos
 ```
 
-### Example CLI Output:
+Example intended output (subject to change when implemented):
 ```text
 AI Metadata Cleaner (aimc)
 Scanning: photo.jpg [JPEG Image]
@@ -193,81 +194,22 @@ RESULT: ✓ VERIFIED CLEAN
 
 ---
 
-## 🐳 Docker / Self-Hosted Deployment
+## 🧰 Packaging & Deployment
 
-Deploy as a local microservice or self-hosted utility:
+### Android app
+The primary artifact is the on-device Android application (Compose UI, Room history, KeyStore-backed attestation). Build the debug APK:
 
 ```bash
-# Clone the repository
-git clone https://github.com/mohdismailmatasin/ai-metadatacleaner.git
-cd ai-metadatacleaner
-
-# Launch with Docker Compose
-docker compose up -d
+gradle :app:assembleDebug
 ```
 
-### Environment Configuration:
-```yaml
-services:
-  ai-metadatacleaner:
-    build: .
-    container_name: aimc-sanitizer
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    environment:
-      - AIMC_PORT=8080
-      - AIMC_LOG_LEVEL=INFO
-    volumes:
-      - ./data/input:/app/storage/input:ro
-      - ./data/output:/app/storage/output:rw
-```
+The APK lands at `app/build/outputs/apk/debug/app-debug.apk`.
 
----
+### Headless CLI / server engine — planned
+The README and docs reference a standalone `aimc` CLI (`aimc scan`, `aimc clean`, `aimc verify`) and a Docker/REST microservice. Those artifacts are **not yet shipped** in this repository — the `AimcCli` object lives inside the Android app, and the Dockerfile currently prints a readiness notice rather than running a server. When implemented, the CLI/server will consume the same `MetadataExtractor` / `MetadataCleaner` / `MetadataVerifier` pipeline used by the app.
 
-## 🌐 REST API Specification
-
-Optional headless API endpoints for automated pipelines:
-
-### `POST /api/scan`
-Inspects an uploaded multipart file:
-```json
-{
-  "filename": "render.png",
-  "mime_type": "image/png",
-  "privacy_exposure": "HIGH",
-  "metadata": {
-    "gps": false,
-    "exif": true,
-    "xmp": true,
-    "ai_metadata": true,
-    "c2pa": false
-  },
-  "ai_evidence": {
-    "engine": "Stable Diffusion (WebUI / Forge)",
-    "confidence": "Metadata evidence only",
-    "prompt_detected": true
-  }
-}
-```
-
-### `POST /api/clean`
-Sanitizes the file and runs secondary verification:
-```json
-{
-  "status": "success",
-  "is_verified_clean": true,
-  "tags_removed": 14,
-  "verification": {
-    "status": "VERIFIED CLEAN",
-    "checks_passed": 7,
-    "remaining_fields": 0
-  }
-}
-```
-
-### `POST /api/verify`
-Performs an independent verification scan on any file.
+### WebAssembly (Wasm) export
+The app can export `metadata-cleaner-wasm.html` — a single-file, zero-install browser tool that runs the same scan/clean/verify pipeline inside any modern browser. Files stay in browser memory; there is no network call from the Wasm tool.
 
 ---
 
@@ -283,17 +225,23 @@ gradle :app:testDebugUnitTest
 gradle :app:assembleDebug
 ```
 
-### Test Coverage:
+### Test Coverage (what's covered today)
 - File signature & magic bytes validation (JPEG, PNG, WebP, PDF, RAW, MP4, MOV)
 - Malicious filename sanitization and path traversal prevention
-- Stable Diffusion Automatic1111 parameter extraction
-- Midjourney flags and prompt parsing
-- C2PA manifest detection
-- Independent verification pass/fail audit
-- Verification detection of intentional residual XMP & AI chunks
-- Privacy inspection report text and JSON generation
-- Expanded camera RAW profile sanitization (CR3, ARW, NEF, CR2, DNG) & MakerNote purge verification
-- Hardware-bound cryptographic ECDSA P-256 signing, attestation validation, tampering rejection & JSON export
+- Stable Diffusion (Automatic1111 / WebUI / Forge) parameter extraction ✔
+- Midjourney flags and prompt parsing ✔
+- C2PA manifest detection ✔
+- Independent verification pass/fail audit and residual-XMP / residual-AI detection ✔
+- Privacy inspection report text and JSON generation ✔
+- Expanded camera RAW profile format detection (CR3, ARW, NEF, DNG) and MakerNote purge verification ✔
+- Hardware-bound cryptographic ECDSA P-256 signing, attestation validation, tampering rejection & JSON export ✔
+
+### Not yet covered by dedicated tests (detected in code, but no parser/verification test)
+- ComfyUI node-graph parsing
+- NovelAI JSON parameter parsing
+- DALL-E / OpenAI / Adobe Firefly `trainedAlgorithmicMedia` detection
+- CR2 MakerNote sanitization
+- MP4/MOV lossless remux end-to-end verification
 
 ---
 
@@ -306,12 +254,17 @@ gradle :app:assembleDebug
 - [x] Batch processing with verification statistics directly on Clean tab
 - [x] Direct WebAssembly (Wasm) browser engine for zero-install client processing
 - [x] Lossless video stream remuxing for MP4/MOV container stripping
-- [x] Expanded RAW profile sanitization (CR3, ARW, NEF)
+- [x] Expanded RAW profile sanitization (CR3, ARW, NEF, CR2, DNG)
 - [x] Hardware-bound cryptographic signing of sanitization proofs
+- [ ] Standalone `aimc` CLI binary (`scan` / `clean` / `verify`)
+- [ ] Docker + REST microservice wrapping the same engine pipeline
+- [ ] Video-specific verification tests for MP4/MOV lossless remux
+- [ ] Dedicated parser/verification tests for CR2, ComfyUI, NovelAI, DALL-E/Firefly detection paths
 
 ---
 
 ## 📄 License & Attribution
 
-All Rights Reserved © Mohd Ismail Mat Asin (mohdismailmatasin@gmail.com) 2026.
-Licensed under the Apache License, Version 2.0.
+Licensed under the [Apache License, Version 2.0](LICENSE).
+
+Copyright © 2026 Mohd Ismail Mat Asin (mohdismailmatasin@gmail.com).
